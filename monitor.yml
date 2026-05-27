@@ -1,0 +1,78 @@
+name: LinkedIn Activity Monitor
+
+on:
+  # Runs every other Monday at 07:00 CET (06:00 UTC)
+  schedule:
+    - cron: "0 6 * * 1"          # every Monday — filter to bi-weekly below
+
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Use mock data (no API calls)"
+        required: false
+        default: "false"
+        type: boolean
+      send_email:
+        description: "Send email after running"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  run-monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Bi-weekly gate: skip odd-numbered weeks so it only runs every 2 weeks.
+      # Week number is ISO week. Week 1, 3, 5... = run. Week 2, 4, 6... = skip.
+      - name: Check bi-weekly schedule
+        if: github.event_name == 'schedule'
+        id: biweekly
+        run: |
+          WEEK=$(date +%V | sed 's/^0//')
+          if (( WEEK % 2 == 0 )); then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Even week ($WEEK) — skipping this run."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Odd week ($WEEK) — running monitor."
+          fi
+
+      - name: Run monitor
+        if: steps.biweekly.outputs.skip != 'true'
+        env:
+          BW_API_KEY: ${{ secrets.BW_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Email credentials (only needed if --email flag is used)
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+        run: |
+          FLAGS=""
+          if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
+            FLAGS="$FLAGS --dry-run"
+          fi
+          if [ "${{ github.event.inputs.send_email }}" == "true" ]; then
+            FLAGS="$FLAGS --email"
+          fi
+          python monitor.py $FLAGS
+
+      - name: Upload HTML report as artifact
+        if: steps.biweekly.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linkedin-report-${{ github.run_id }}
+          path: report_*.html
+          retention-days: 90

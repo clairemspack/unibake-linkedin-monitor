@@ -1,0 +1,24 @@
+# API keys and local config — never commit this
+config.json
+
+# Generated reports — stored as GitHub Actions artifacts instead
+report_*.html
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+monitor.log
