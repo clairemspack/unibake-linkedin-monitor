@@ -435,7 +435,7 @@ def send_email(cfg: dict, summary: dict, brief: str, html_path: Path) -> None:
     part.add_header("Content-Disposition", f"attachment; filename={html_path.name}")
     msg.attach(part)
 
-    with smtplib.SMTP(ec.get("smtp_server", "smtp.gmail.com"), ec.get("smtp_port", 587)) as server:, ec.get("smtp_port", 587)) as server:
+  with smtplib.SMTP(ec.get("smtp_server", "smtp.gmail.com"), ec.get("smtp_port", 587)) as server:
         server.starttls()
         server.login(ec["sender"], ec["password"])
         server.sendmail(ec["sender"], ec["recipients"], msg.as_string())
